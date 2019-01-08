@@ -3,10 +3,12 @@ package fr.wcs.gmaps;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -17,6 +19,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
@@ -28,10 +31,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private Location mLocation;
     private Marker nousMarker;
+    private Marker mMarker;
     private static final int ACCESS_FINE_REQUEST = 100;
 
     private boolean isMapReady;
     private boolean isLocationReady;
+    private boolean hasAnimated;
+    private LatLngBounds BORDEAUX;
+    //private LatLng BORDEAUX_CENTER = new LatLng(44.837789,-0.57918);
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,13 +50,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        //FIRST SOUTHWEST THEN NORTHEAST
+       BORDEAUX = new LatLngBounds(
+                new LatLng(44.813, -0.617), new LatLng(44.87, -0.5394));
         checkPermission();
 
-
-
-
     }
-
 
 
     /**
@@ -66,8 +73,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
         isMapReady = true;
+        mMap.setMinZoomPreference(12.0f);
+        mMap.setMaxZoomPreference(15.0f);
+        mMap.setLatLngBoundsForCameraTarget(BORDEAUX);
 
-        if (isLocationReady) placeMarker();
+        if (isLocationReady) placeSelfMarker();
+
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+                placeMarker(latLng);
+            }
+        });
+
+        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker) {
+
+                Intent mapIntent = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("google.navigation:q="+ marker.getPosition().toString()));
+                mapIntent.setPackage("com.google.android.apps.maps");
+
+                if (mapIntent.resolveActivity(getPackageManager()) !=null){
+                    startActivity(mapIntent);
+                }
+                return false;
+            }
+        });
         // Add a marker in Sydney and move the camera
 //        LatLng nous = new LatLng(-34, 151);
 //        mMap.addMarker(new MarkerOptions().position(nous).title("Marker here"));
@@ -142,9 +174,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 // TODO : effectuer une action ici !
 
                 mLocation = location;
+
                 isLocationReady = true;
 
-             if (isMapReady) placeMarker();
+
+
+                mMap.setMyLocationEnabled(true);
+
+
+             if (isMapReady) placeSelfMarker();
             }
 
             public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -162,29 +200,52 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-    public void placeMarker(){
+    public void placeSelfMarker(){
 
 
         LatLng nous = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
 
-
-        if (nousMarker != null){
-            nousMarker.remove();
-        }
-
-        //marche pas a recheflir
-        else {
+        if(!hasAnimated) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(nous, 12.0f));
+            hasAnimated = true;
         }
 
-        nousMarker = mMap.addMarker(new MarkerOptions().position(nous).title(mLocation.toString()));
+
+//        if (nousMarker != null){
+//            nousMarker.remove();
+//        }
+//
+//        //marche pas a recheflir
+//        else {
+//            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(nous, 12.0f));
+//        }
+
+
+        //nousMarker = mMap.addMarker(new MarkerOptions().position(nous).title(mLocation.toString()));
+
+//
+//        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+//                == PackageManager.PERMISSION_GRANTED) {
+//            mMap.setMyLocationEnabled(true);
+//        }
         //mMap.moveCamera(CameraUpdateFactory.newLatLng(nous));
         //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(nous, 12.0f));
-        mMap.setMinZoomPreference(12.0f);
-        mMap.setMaxZoomPreference(15.0f);
+
             // //Move the camera to the user's location and zoom in!
         //
 
+
+
+    }
+
+    public Marker placeMarker(LatLng pLatLnp){
+
+        if(mMarker != null){
+            mMarker.remove();
+        }
+        mMarker = mMap.addMarker(new MarkerOptions().position(pLatLnp));
+
+        return mMarker;
 
 
     }
